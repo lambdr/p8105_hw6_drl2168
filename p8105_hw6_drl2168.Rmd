@@ -8,6 +8,7 @@ output: github_document
 ```{r load packages and default options, message = FALSE}
 # Load packages
 library(tidyverse)
+library(broom)
 
 
 # Set default figure options
@@ -26,3 +27,62 @@ options(
 scale_colour_discrete = scale_colour_viridis_d
 scale_fill_discrete = scale_fill_viridis_d
 ```
+
+# Problem 1
+I imported the data using similar code to that which I wrote in HW5, but with a few additional cleaning steps for this problem. The final data set considers only 5 variables: the city & state of the homicide, whether the case was solved, and victim demographics (age, race, sex).
+```{r p1 data import}
+df_homicide <- read_csv("data/homicide-data.csv", 
+                        na = "Unknown") |> 
+  mutate(
+    state = str_to_upper(state),
+    city_state = str_c(city, ", ", state),
+    solved = case_when(
+      disposition == "Closed by arrest" ~ 1,
+      disposition != "Closed by arrest" ~ 0
+    )
+    ) |> 
+  filter(!city_state %in% c("Tulsa, AL", "Dallas, TX", "Phoenix, AZ", "Kansas City, MO"),
+         victim_race %in% c("Black", "White")) |> 
+  select(city_state, victim_age, victim_sex, victim_race, solved)
+```
+
+Now I will fit a logistic regression model to predict the odds of cases being solved by victim demographics.
+
+```{r logistic regression on baltimore}
+bmore_model = 
+  df_homicide |> 
+  filter(city_state == "Baltimore, MD") |> 
+  glm(solved ~ victim_age + victim_race + victim_sex,
+      family = binomial,
+      data = _)
+```
+
+This model is stored within R. I will use `tidy()` from the `broom` package to examine it further. Calculating the adjusted odds ratios and confidence intervals in a tidy format was challenging, so I created the function below to add the values of interest to an input dataframe.
+
+```{r function for adding or and ci to df}
+or_ci = function(df){
+  df = 
+    df |> 
+    mutate(
+      ci_lower = exp(estimate - 1.96*std.error),
+      or = exp(estimate),
+      ci_upper = exp(estimate + 1.96*std.error)
+    )
+  
+  return(df)
+}
+```
+
+Now I will apply the `or_ci` function to the logistic regression model for Baltimore, MD.
+```{r bmore or}
+bmore_or_sex = 
+  bmore_model |> 
+  tidy() |> 
+  or_ci() |> 
+  filter(term == "victim_sexMale") |> 
+  select(ci_lower:ci_upper)
+```
+
+The adjusted odds ratio for sex on homicide is `r bmore_or_sex |> pull(or) |> round(digits = 2)` (95% CI: `r bmore_or_sex |> pull(ci_lower) |> round(digits = 2)`, `r bmore_or_sex |> pull(ci_upper) |> round(digits = 2)`), this means that when the homicide victim is male in Baltimore, MD, the case is 57% less likely to be solved than when the victim is female, holding other demographic variables constant.
+
+
