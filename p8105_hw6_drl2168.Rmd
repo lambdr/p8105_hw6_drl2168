@@ -30,7 +30,7 @@ scale_fill_discrete = scale_fill_viridis_d
 
 # Problem 1
 I imported the data using similar code to that which I wrote in HW5, but with a few additional cleaning steps for this problem. The final data set considers only 5 variables: the city & state of the homicide, whether the case was solved, and victim demographics (age, race, sex).
-```{r p1 data import}
+```{r p1 data import, message = FALSE, warning = FALSE}
 df_homicide <- read_csv("data/homicide-data.csv", 
                         na = "Unknown") |> 
   mutate(
@@ -103,14 +103,44 @@ clean_or = function(df){
 
 To check that this still works, I will again apply it to the Baltimore model.
 
-```{r}
+```{r check clean_or function}
 bmore_model |> 
   clean_or()
 ```
 
 It still works. Now I will do this for the entire dataset, using `map` functions.
 
-```{r}
-
+```{r ors for each df}
+df_or_homicide = 
+  df_homicide |> 
+  group_by(city_state) |> 
+  nest() |> 
+  mutate(
+    models = map(data, \(df) glm(solved ~ victim_age + victim_race + victim_sex,
+                                family = binomial,
+                                data = df)),
+    odds_ratio = map(models, clean_or)
+  ) |> 
+  unnest(odds_ratio) |> 
+  select(city_state, ci_lower:ci_upper) |> 
+  ungroup()
 ```
+
+```{r create plot}
+df_or_homicide |> 
+  mutate(city_state = fct_reorder(city_state, or)) |> 
+  ggplot(aes(x = or, y = city_state)) + 
+  geom_point() + 
+  geom_errorbarh(aes(xmin = ci_lower, xmax = ci_upper)) + 
+  labs(
+      title = "Adjusted Odds Ratios for Sex on Homicide Closure",
+      x = " Adjusted Odds Ratio",
+      y = "City & State"
+  )
+```
+
+In most cities, the point estimate for the adjusted odds ratio is below 1, suggesting that homicide cases with male victims are less likely to be solved than those with female victims, holding other variables constant. In some cities, such as New York City and Baton Rouge, the odds ratio looks to be much lower than 0.5. There are three cities with ORs appreciably above 1, suggesting that homicide cases with male victims are more likely to be solved than female victims, holding other variables constant. These three cities have wide CIs that cross 1, however. Indeed, over half of these CIs cross 1, bringing the relationship between victim sex and homicide closure into question generally, though it is clear in some cities.
+
+# Problem 2
+
 
