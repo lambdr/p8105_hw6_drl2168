@@ -9,7 +9,7 @@ output: github_document
 # Load packages
 library(tidyverse)
 library(broom)
-
+library(modelr)
 
 # Set default figure options
 knitr::opts_chunk$set(
@@ -244,7 +244,7 @@ df_bootstrap |>
 
 # Problem 3
 
-```{r import birthweight data}
+```{r import birthweight data, message = FALSE}
 df_bwt = 
   read_csv("data/birthweight.csv") |> 
   mutate(
@@ -280,4 +280,47 @@ df_bwt =
     frace = as.factor(frace))
 ```
 
-Here is the code for doing stepwise selection: http://www.sthda.com/english/articles/37-model-selection-essentials-in-r/154-stepwise-regression-essentials-in-r/
+I will build this model using a stepwise regression approach, using AIC to evaluate model performance. This can be performed using the `stepAIC()` function in the `MASS` package.
+
+```{r build model, message = FALSE}
+base_model = 
+  df_bwt |> 
+  lm(bwt ~ ., data = _)
+
+bwt_model = 
+  base_model |> 
+  MASS::stepAIC(direction = "both")
+```
+
+```{r evaluate model}
+bwt_model |> 
+  anova()
+
+bwt_model |> 
+  tidy() |> 
+  knitr::kable()
+
+bwt_model |> 
+  glance() |> 
+  select(-c(sigma, logLik, BIC, deviance)) |> 
+  knitr::kable()
+```
+
+I will look at a plot of residuals vs predicted values to assess model performance.
+
+```{r resid plot}
+df_bwt |> 
+  add_residuals(bwt_model) |> 
+  add_predictions(bwt_model) |> 
+  ggplot(aes(x = pred, y = resid)) + 
+  geom_point() + 
+  geom_smooth(method = "lm", formula = y ~ x) + 
+  labs(
+    x = "Predicted Birthweight",
+    y = "Residuals"
+  )
+```
+
+There are a few cases with the model underpredicting badly, particularly with children who have a low birthweight. This might be indicative of the model only performing well on the more 'typical' baby, which represents the majority of the data it was trained on. However, in general the residuals appear to not change much with predicted birthweight and be centered around zero, based upon the smoothing line.
+
+  
