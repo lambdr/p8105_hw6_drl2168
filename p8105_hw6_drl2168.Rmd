@@ -218,7 +218,7 @@ df_bootstrap |>
   geom_histogram() + 
   labs(
     title = "Distribution of Bootstrap Log Beta Product",
-    x = "Log(beta1 * beta2",
+    x = "Log(beta1 * beta2)",
     y = "Frequency"
   ) 
 ```
@@ -241,3 +241,43 @@ df_bootstrap |>
                digits = 3)
 ```
 
+
+# Problem 3
+
+```{r import birthweight data}
+df_bwt = 
+  read_csv("data/birthweight.csv") |> 
+  mutate(
+    babysex = case_match(
+      babysex,
+      1 ~ "male",
+      2 ~ "female"),
+    malform = case_match(
+      malform,
+      0 ~ "absent",
+      1 ~ "present"
+    ),
+    mrace = case_match(
+      mrace,
+      1 ~ "White",
+      2 ~ "Black",
+      3 ~ "Asian",
+      4 ~ "Puerto Rican",
+      8 ~ "Other"
+    ),
+    frace = case_match(
+      frace,
+      1 ~ "White",
+      2 ~ "Black",
+      3 ~ "Asian",
+      4 ~ "Puerto Rican",
+      8 ~ "Other",
+      9 ~ "Unknown"
+    ),
+    babysex = as.factor(babysex),
+    malform = as.factor(malform),
+    mrace = as.factor(mrace),
+    frace = as.factor(frace))
+```
+
+Here is the code for doing stepwise selection: http://www.sthda.com/english/articles/37-model-selection-essentials-in-r/154-stepwise-regression-essentials-in-r/
