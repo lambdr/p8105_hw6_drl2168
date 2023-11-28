@@ -183,7 +183,6 @@ df_bootstrap =
 
 I then applied a linear model to each sample, and then used both the `tidy` and `glance` functions from `broom` on the model. Both of these functions output a `p.value` column within their dataframes, so I needed to unnest and extract data one at a time. 
 
-Some of the values of $\hat{\beta_1}*\hat{\beta_2}$ were negative, and therefore the logarithm of these values is not real. I therefore decided to apply the absolute value function to these values in order to visualize them.
 ```{r regression on bootstrap df}
 df_bootstrap =
   df_bootstrap |> 
@@ -198,11 +197,12 @@ df_bootstrap =
   pivot_wider(
     names_from = term,
     values_from = estimate) |> 
-  mutate(log_beta = log(abs(tmin*prcp))) |> 
+  mutate(log_beta = log(tmin*prcp)) |> 
   select(r.squared,log_beta)
 ```
 
-I will now construct histograms for these two estimated parameters.
+Some of the values of $\hat{\beta_1}*\hat{\beta_2}$ were negative, and therefore the logarithm of these values is not real. Of the 5000 bootstrap samples, `r df_bootstrap |> pull(log_beta) |> is.na() |> sum()` have `NA` $log(\hat{\beta_1}*\hat{\beta_2})$ terms. I will construct histograms for the estimated parameters, excluding the `NA` values for the $log(\hat{\beta_1}*\hat{\beta_2})$ terms.
+
 ```{r histograms of r.squared and log_beta}
 df_bootstrap |> 
   ggplot(aes(x = r.squared)) +
@@ -214,6 +214,7 @@ df_bootstrap |>
   )
 
 df_bootstrap |> 
+  drop_na(log_beta) |> 
   ggplot(aes(x = log_beta)) +
   geom_histogram() + 
   labs(
@@ -234,8 +235,8 @@ df_bootstrap |>
   ) |> 
   group_by(parameter) |> 
   summarize(
-    ci_lower = quantile(estimate, 0.025),
-    ci_upper = quantile(estimate, 0.975)
+    ci_lower = quantile(estimate, 0.025, na.rm = TRUE),
+    ci_upper = quantile(estimate, 0.975, na.rm = TRUE)
   ) |> 
   knitr::kable(col.names = c("Parameter","CI Lower Bound", "CI Upper Bound"),
                digits = 3)
